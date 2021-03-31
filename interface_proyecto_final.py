@@ -1,14 +1,14 @@
 #Imports
 from imutils.video import WebcamVideoStream
-import imutils
 from tkinter import *
 from PIL import ImageTk, Image, ImageEnhance
-import tkinter.messagebox as ms
+import numpy as np
 import datetime
+import imutils
 import time
 import cv2
 import os
-import numpy as np
+import threading
 
 class VideoStream:
 	def __init__(self, src=0, usePiCamera=False, resolution=(300, 300), framerate=32):
@@ -53,6 +53,8 @@ class Interface:
 		self.panelVideo = None
 		self.panelCaptura = None
 		self.img = None
+		self.thread = None
+		self.stopEvent = None
 		self.pad_x=2
 		self.pad_y=2
 		self.position()
@@ -69,6 +71,10 @@ class Interface:
 		self.root.resizable(False, False)
 		self.root.iconbitmap('icono.ico')
 		self.root.config(bg='black')
+
+		self.stopEvent = threading.Event()
+		self.thread = threading.Thread(target=self.iniciar_video, args=())
+		self.thread.start()
 
 
 		#Frame Principal
@@ -110,10 +116,13 @@ class Interface:
 		self.i+=1
 
 	def leer_imagen(self):
-		frame = self.vs.read()
-		frame = imutils.resize(frame, width=int(self.d_width/2-self.pad_x), height=int(self.d_height-self.pad_y))
-		self.img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-		self.img = Image.fromarray(self.img)
+		try:
+			frame = self.vs.read()
+			frame = imutils.resize(frame, width=int(self.d_width/2-self.pad_x), height=int(self.d_height-self.pad_y))
+			self.img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+			self.img = Image.fromarray(self.img)
+		except:
+			print('[INFO] Error en la captura del video...')
 
 	def capturar_imagenes(self):
 		date_now = datetime.datetime.now()
@@ -125,13 +134,15 @@ class Interface:
 		self.asignar_panelCapura()
 
 	def iniciar_video(self):
-		self.vs.start()
-		self.leer_imagen()
-		self.asignar_panelVideo()
-		self.btnCapture.configure(state='normal')
-		self.btnStop.configure(state='normal')
+		while not self.stopEvent.is_set():
+			self.vs.start()
+			self.leer_imagen()
+			self.asignar_panelVideo()
+			self.btnCapture.configure(state='normal')
+			self.btnStop.configure(state='normal')
 
 	def stop(self):
+		self.stopEvent.set()
 		self.vs.stop()
 		print('[INFO] Terminada la trasmision...')
 
