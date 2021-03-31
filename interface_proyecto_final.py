@@ -114,9 +114,6 @@ class Interface:
 		frame = imutils.resize(frame, width=int(self.d_width/2-self.pad_x), height=int(self.d_height-self.pad_y))
 		self.img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 		self.img = Image.fromarray(self.img)
-		#self.img = ImageTk.PhotoImage(self.img)
-		#img = Image.open('1.gif')
-		#img = self.img.resize((int(self.d_width/2-self.pad_x), int(self.d_height-self.pad_y)), Image.ANTIALIAS)
 
 	def capturar_imagenes(self):
 		date_now = datetime.datetime.now()
@@ -128,7 +125,7 @@ class Interface:
 		self.asignar_panelCapura()
 
 	def iniciar_video(self):
-		#self.vs.start()
+		self.vs.start()
 		self.leer_imagen()
 		self.asignar_panelVideo()
 		self.btnCapture.configure(state='normal')
