@@ -1,15 +1,17 @@
 #Imports
 from imutils.video import WebcamVideoStream
+import imutils
 from tkinter import *
 from PIL import ImageTk, Image, ImageEnhance
 import tkinter.messagebox as ms
 import datetime
+import time
 import cv2
 import os
-
+import numpy as np
 
 class VideoStream:
-	def __init__(self, src=0, usePiCamera=False, resolution=(320, 240), framerate=32):
+	def __init__(self, src=0, usePiCamera=False, resolution=(300, 300), framerate=32):
 		if usePiCamera:
 			from pivideostream import PiVideoStream
 			self.stream = PiVideoStream(resolution=resolution,
@@ -31,7 +33,8 @@ class VideoStream:
 
 
 class Interface:
-	def __init__(self, ventana):
+	def __init__(self, ventana, vs):
+		self.vs = vs
 		self.root = ventana
 		self.d_width=600
 		self.d_height=300
@@ -59,7 +62,7 @@ class Interface:
 	def position(self):		 
 		positionRight = int(self.root.winfo_screenwidth()/2 - self.d_width/2)
 		positionDown = int(self.root.winfo_screenheight()/2 - self.d_height/2)
-		self.root.geometry("+{}+{}".format(positionRight, positionDown))
+		self.root.geometry('+{}+{}'.format(positionRight, positionDown))
 
 	def start(self):
 		self.root.title('Face_Recognition')
@@ -94,11 +97,11 @@ class Interface:
 		self.frameInf.pack()
 		self.lbl = Label(self.frameInf, text='NombrePersona', fg=self.color2, bg=self.color)
 		self.lbl.pack()
-		self.btnVideo = Button(self.frameInf, text = "Video", command=self.iniciar_video, activebackground="black", activeforeground="white", padx=10, pady=5)
+		self.btnVideo = Button(self.frameInf, text = 'Video', command=self.iniciar_video, activebackground='black', activeforeground='white', padx=10, pady=5)
 		self.btnVideo.pack(side='left')
-		self.btnCapture = Button(self.frameInf, text = "Capture", state=DISABLED, command=self.capturar_imagenes, activebackground="black", activeforeground="white", padx=10, pady=5)
+		self.btnCapture = Button(self.frameInf, text = 'Capture', state=DISABLED, command=self.capturar_imagenes, activebackground='black', activeforeground='white', padx=10, pady=5)
 		self.btnCapture.pack(side='left')
-		self.btnStop = Button(self.frameInf, text = "Stop", state=DISABLED, activebackground="black", activeforeground="white", padx=10, pady=5)
+		self.btnStop = Button(self.frameInf, text = 'Stop', state=DISABLED, command= self.stop, activebackground='black', activeforeground='white', padx=10, pady=5)
 		self.btnStop.pack(side='left')
 
 	def asignar_nombre(self):
@@ -107,30 +110,33 @@ class Interface:
 		self.i+=1
 
 	def leer_imagen(self):
-		self.img = Image.open("1.gif")
-		self.img = self.img.resize((int(self.d_width/2-self.pad_x), int(self.d_height-self.pad_y)), Image.ANTIALIAS)
+		frame = self.vs.read()
+		frame = imutils.resize(frame, width=int(self.d_width/2-self.pad_x), height=int(self.d_height-self.pad_y))
+		self.img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+		self.img = Image.fromarray(self.img)
+		#self.img = ImageTk.PhotoImage(self.img)
+		#img = Image.open('1.gif')
+		#img = self.img.resize((int(self.d_width/2-self.pad_x), int(self.d_height-self.pad_y)), Image.ANTIALIAS)
 
 	def capturar_imagenes(self):
 		date_now = datetime.datetime.now()
-		filename = "{}.jpg".format(date_now.strftime("%Y-%m-%d_%H_%M_%S"))
+		filename = '{}.png'.format(date_now.strftime('%Y-%m-%d_%H_%M_%S'))
 		path_img = os.path.join(os.getcwd(), filename)
-		self.img = Image.fromarray(self.img)
 		self.img.save(path_img)
-
-		#j = Image.fromarray(self.img)
-		#j.save(path_img)
-		#cv2.imwrite(path_img, self.img)
-
-		print("[INFO] saved {}".format(filename))
+		print('[INFO] saved {}'.format(filename))
 		self.asignar_nombre()
 		self.asignar_panelCapura()
 
 	def iniciar_video(self):
+		#self.vs.start()
 		self.leer_imagen()
 		self.asignar_panelVideo()
 		self.btnCapture.configure(state='normal')
 		self.btnStop.configure(state='normal')
 
+	def stop(self):
+		self.vs.stop()
+		print('[INFO] Terminada la trasmision...')
 
 	def asignar_panelVideo(self):
 		img = ImageTk.PhotoImage(self.img)
@@ -154,5 +160,9 @@ class Interface:
 
 
 ventana = Tk()
-root = Interface(ventana)
+print("[INFO] Iniciando Interfaz y captura de video...")
+vs = VideoStream()
+time.sleep(2.0)
+
+Interface(ventana, vs)
 ventana.mainloop()
