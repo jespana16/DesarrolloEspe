@@ -1,0 +1,7 @@
+*.gif
+*.png
+*.ico
+
+Interface_desarrollo.py
+Interface_video_completo.py
+interface_solo_video.pyw
