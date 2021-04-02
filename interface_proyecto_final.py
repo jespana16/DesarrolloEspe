@@ -7,6 +7,10 @@ import datetime
 import imutils
 import time
 import cv2
+from cv2 import CascadeClassifier
+from cv2 import destroyAllWindows
+from cv2 import CascadeClassifier
+from cv2 import rectangle
 import os
 import threading
 
@@ -33,15 +37,15 @@ class VideoStream:
 
 
 class Interface:
-	def __init__(self, ventana, vs):
+	def __init__(self, ventana, vs, w=600, h=300):
 		self.vs = vs
 		self.root = ventana
-		self.d_width=600
-		self.d_height=300
-		self.i=1
-		self.color='black'
-		self.color1='green'
-		self.color2='white'
+		self.d_width = w
+		self.d_height = h
+		self.i = 1
+		self.color ='black'
+		self.color1 ='green'
+		self.color2 ='white'
 		self.path = 'base'
 		self.framePrincipal = None
 		self.frameSup = None
@@ -55,8 +59,8 @@ class Interface:
 		self.img = None
 		self.thread = None
 		self.stopEvent = None
-		self.pad_x=2
-		self.pad_y=2
+		self.pad_x = 2
+		self.pad_y = 2
 		self.position()
 		self.start()
 		self.leer_imagen()
@@ -85,7 +89,7 @@ class Interface:
 
 		#Frame Superior
 		self.frameSup = Frame(self.framePrincipal)
-		self.frameSup.config(width=self.d_width, height=self.d_height)
+		self.frameSup.config(bg=self.color, width=self.d_width, height=self.d_height)
 		self.frameSup.pack(fill='both', expand='False')
 
 		self.framevideo = Frame(self.frameSup)
@@ -103,8 +107,6 @@ class Interface:
 		self.frameInf.pack()
 		self.lbl = Label(self.frameInf, text='NombrePersona', fg=self.color2, bg=self.color)
 		self.lbl.pack()
-		self.btnVideo = Button(self.frameInf, text = 'Video', command=self.iniciar_video, activebackground='black', activeforeground='white', padx=10, pady=5)
-		self.btnVideo.pack(side='left')
 		self.btnCapture = Button(self.frameInf, text = 'Capture', state=DISABLED, command=self.capturar_imagenes, activebackground='black', activeforeground='white', padx=10, pady=5)
 		self.btnCapture.pack(side='left')
 		self.btnStop = Button(self.frameInf, text = 'Stop', state=DISABLED, command= self.stop, activebackground='black', activeforeground='white', padx=10, pady=5)
@@ -130,12 +132,31 @@ class Interface:
 		path_img = os.path.join(os.getcwd(), filename)
 		self.img.save(path_img)
 		print('[INFO] saved {}'.format(filename))
+		#self.img, bboxes = self.crop_img()
 		self.asignar_nombre()
 		self.asignar_panelCapura()
 
+	def crop_img(self):
+		classifier = CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+		#img = self.img.copy()
+		#self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
+		bboxes = classifier.detectMultiScale(self.img)
+		if len(bboxes)>0:
+			area = 0
+			xx,yy,ww,hh = 0,0,0,0
+			for box in bboxes:
+				x,y,w,h = box
+				if w*h > area:
+					area = w*h
+					xx,yy,ww,hh = x,y,w,h
+				img = img[yy:yy+hh, xx:xx+ww]
+			cv2.rectangle(img,(xx,yy),(xx+ww,yy+hh),(255,0,0),3)
+		return img, len(bboxes)
+
 	def iniciar_video(self):
+		self.vs.start()
+		time.sleep(1)
 		while not self.stopEvent.is_set():
-			self.vs.start()
 			self.leer_imagen()
 			self.asignar_panelVideo()
 			self.btnCapture.configure(state='normal')
@@ -169,8 +190,8 @@ class Interface:
 
 ventana = Tk()
 print("[INFO] Iniciando Interfaz y captura de video...")
-vs = VideoStream()
+vs = VideoStream(resolution=(300,300))
 time.sleep(2.0)
 
-Interface(ventana, vs)
+Interface(ventana, vs, 600, 200)
 ventana.mainloop()
