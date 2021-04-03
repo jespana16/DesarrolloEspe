@@ -1,4 +1,3 @@
-#Imports
 from imutils.video import WebcamVideoStream
 from tkinter import *
 from PIL import ImageTk, Image, ImageEnhance
@@ -18,8 +17,7 @@ class VideoStream:
 	def __init__(self, src=0, usePiCamera=False, resolution=(300, 300), framerate=32):
 		if usePiCamera:
 			from pivideostream import PiVideoStream
-			self.stream = PiVideoStream(resolution=resolution,
-				framerate=framerate)
+			self.stream = PiVideoStream(resolution=resolution,framerate=framerate)
 		else:
 			self.stream = WebcamVideoStream(src=src)
 
@@ -57,8 +55,11 @@ class Interface:
 		self.panelVideo = None
 		self.panelCaptura = None
 		self.img = None
+		self.img2 = None
 		self.thread = None
 		self.stopEvent = None
+		self.filename = None
+		self.frame = None
 		self.pad_x = 2
 		self.pad_y = 2
 		self.position()
@@ -105,53 +106,49 @@ class Interface:
 		self.frameInf = Frame(self.framePrincipal)
 		self.frameInf.config(bg=self.color, width=self.d_width, height=self.d_height/4)
 		self.frameInf.pack()
-		self.lbl = Label(self.frameInf, text='NombrePersona', fg=self.color2, bg=self.color)
+		self.lbl = Label(self.frameInf, text='', fg=self.color2, bg=self.color)
 		self.lbl.pack()
 		self.btnCapture = Button(self.frameInf, text = 'Capture', state=DISABLED, command=self.capturar_imagenes, activebackground='black', activeforeground='white', padx=10, pady=5)
 		self.btnCapture.pack(side='left')
 		self.btnStop = Button(self.frameInf, text = 'Stop', state=DISABLED, command= self.stop, activebackground='black', activeforeground='white', padx=10, pady=5)
 		self.btnStop.pack(side='left')
 
-	def asignar_nombre(self):
-		global i
-		self.lbl.config(text='NombrePersona' + str(self.i))
-		self.i+=1
+	def asignar_nombre(self, label):
+		self.lbl.config(text=label)
 
 	def leer_imagen(self):
 		try:
-			frame = self.vs.read()
-			frame = imutils.resize(frame, width=int(self.d_width/2-self.pad_x), height=int(self.d_height-self.pad_y))
-			self.img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-			self.img = Image.fromarray(self.img)
-		except:
-			print('[INFO] Error en la captura del video...')
+			self.frame = self.vs.read()
+		except Exception as e:
+			print('[INFO] Error en la captura del video: ', e)
 
 	def capturar_imagenes(self):
 		date_now = datetime.datetime.now()
-		filename = '{}.png'.format(date_now.strftime('%Y-%m-%d_%H_%M_%S'))
-		path_img = os.path.join(os.getcwd(), filename)
-		self.img.save(path_img)
-		print('[INFO] saved {}'.format(filename))
-		#self.img, bboxes = self.crop_img()
-		self.asignar_nombre()
-		self.asignar_panelCapura()
+		self.filename = '{}.png'.format(date_now.strftime('%Y-%m-%d_%H_%M_%S'))
+		path_img = os.path.join(os.getcwd(), self.filename)
+		
+		#FaceDetection
+		boxes = self.crop_img()
+		if boxes==1:
+			self.convertir_arreglo_imagen()
+			self.img.save(path_img)
+			print('[INFO] saved {}'.format(self.filename))
+			self.asignar_nombre('Rostro Detectado')
+			self.asignar_panelCapura()
+		else:
+			self.asignar_nombre('Rostro no detectado')
 
 	def crop_img(self):
-		classifier = CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-		#img = self.img.copy()
-		#self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
-		bboxes = classifier.detectMultiScale(self.img)
-		if len(bboxes)>0:
-			area = 0
-			xx,yy,ww,hh = 0,0,0,0
-			for box in bboxes:
-				x,y,w,h = box
-				if w*h > area:
-					area = w*h
-					xx,yy,ww,hh = x,y,w,h
-				img = img[yy:yy+hh, xx:xx+ww]
-			cv2.rectangle(img,(xx,yy),(xx+ww,yy+hh),(255,0,0),3)
-		return img, len(bboxes)
+		classifier = CascadeClassifier('haarcascade_frontalface_default.xml')
+		self.frame = cv2.cvtColor(self.frame, cv2.COLOR_RGB2GRAY)
+		bboxes = classifier.detectMultiScale(image=self.frame)
+		print('***Cantidad Boxes detectados: {0} - {1}'.format(len(bboxes), bboxes))
+
+		if len(bboxes)==1:
+			x,y,w,h = bboxes[0]
+			self.frame = self.frame[y:y+h, x:x+w]
+			#cv2.rectangle(self.frame,(x,y),(x+w,y+h),(255,0,0),3)
+		return len(bboxes)
 
 	def iniciar_video(self):
 		self.vs.start()
@@ -167,7 +164,14 @@ class Interface:
 		self.vs.stop()
 		print('[INFO] Terminada la trasmision...')
 
+	def convertir_arreglo_imagen(self):
+		self.frame = imutils.resize(self.frame, width=int(self.d_width/2))
+		self.img = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
+		self.img = Image.fromarray(self.img)
+		self.img = self.img.transpose(method=Image.FLIP_LEFT_RIGHT)
+
 	def asignar_panelVideo(self):
+		self.convertir_arreglo_imagen()
 		img = ImageTk.PhotoImage(self.img)
 		if self.panelVideo is None:
 			self.panelVideo = Label(self.framevideo, image=img)
@@ -178,6 +182,7 @@ class Interface:
 			self.panelVideo.image = img
 
 	def asignar_panelCapura(self):
+		self.convertir_arreglo_imagen()
 		img = ImageTk.PhotoImage(self.img)
 		if self.panelCaptura is None:
 			self.panelCaptura = Label(self.framecapture, image=img)
