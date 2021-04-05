@@ -7,11 +7,10 @@ import imutils
 import time
 import cv2
 from cv2 import CascadeClassifier
-from cv2 import destroyAllWindows
-from cv2 import CascadeClassifier
-from cv2 import rectangle
 import os
 import threading
+from keras.models import load_model
+from keras.preprocessing.image import img_to_array
 
 class VideoStream:
 	def __init__(self, src=0, usePiCamera=False, resolution=(300, 300), framerate=32):
@@ -60,8 +59,12 @@ class Interface:
 		self.stopEvent = None
 		self.filename = None
 		self.frame = None
+		self.frame_prediccion = None
+		self.modelo = None
 		self.pad_x = 2
 		self.pad_y = 2
+		self.resultado_prediccion = None
+		self.etiquetas = ['Desconocido', 'Valentina', 'Felipe', 'Kevyn', 'Jeferson', 'Alejandro']
 		self.position()
 		self.start()
 		self.leer_imagen()
@@ -113,8 +116,8 @@ class Interface:
 		self.btnStop = Button(self.frameInf, text = 'Stop', state=DISABLED, command= self.stop, activebackground='black', activeforeground='white', padx=10, pady=5)
 		self.btnStop.pack(side='left')
 
-	def asignar_nombre(self, label):
-		self.lbl.config(text=label)
+	def asignar_nombre(self, label, color):
+		self.lbl.config(fg =color, text=label)
 
 	def leer_imagen(self):
 		try:
@@ -130,29 +133,50 @@ class Interface:
 		#FaceDetection
 		boxes = self.crop_img()
 		if boxes==1:
+			self.prediccion()
 			self.convertir_arreglo_imagen()
 			self.img.save(path_img)
 			print('[INFO] saved {}'.format(self.filename))
-			self.asignar_nombre('Rostro Detectado')
+			maximo = np.amax(self.resultado_prediccion)
+			indice_etiqueta_prediccion = self.resultado_prediccion.tolist()[0].index(maximo)
+			if self.etiquetas[indice_etiqueta_prediccion].upper() == 'DESCONOCIDO':
+				self.asignar_nombre('No se ha identificado un rostro.', 'yellow')
+			else:
+				self.asignar_nombre('Hola ' + self.etiquetas[indice_etiqueta_prediccion] + ' bienvenido.', 'green')
 			self.asignar_panelCapura()
 		else:
-			self.asignar_nombre('Rostro no detectado')
+			self.asignar_nombre('Rostro no detectado', 'red')
+			self.frame_prediccion = None
+			self.asignar_panelCapura()
+
+	def prediccion(self):
+		self.frame_prediccion = cv2.resize(self.frame_bboxes, dsize=(120, 120), interpolation=cv2.INTER_CUBIC)
+		self.frame_prediccion = img_to_array(self.frame_prediccion)
+		self.frame_prediccion = (self.frame_prediccion-self.frame_prediccion.min())/(self.frame_prediccion.max()-self.frame_prediccion.min())
+		self.frame_prediccion = np.array([self.frame_prediccion])
+		self.resultado_prediccion = self.modelo.predict(self.frame_prediccion)
+		self.frame_prediccion = cv2.cvtColor(self.frame_prediccion, cv2.COLOR_GRAY2RGB)
 
 	def crop_img(self):
 		classifier = CascadeClassifier('haarcascade_frontalface_default.xml')
-		self.frame = cv2.cvtColor(self.frame, cv2.COLOR_RGB2GRAY)
-		bboxes = classifier.detectMultiScale(image=self.frame)
+		self.frame_bboxes = cv2.cvtColor(self.frame, cv2.COLOR_RGB2GRAY)
+		bboxes = classifier.detectMultiScale(image=self.frame_bboxes)
 		print('***Cantidad Boxes detectados: {0} - {1}'.format(len(bboxes), bboxes))
 
 		if len(bboxes)==1:
 			x,y,w,h = bboxes[0]
-			self.frame = self.frame[y:y+h, x:x+w]
-			#cv2.rectangle(self.frame,(x,y),(x+w,y+h),(255,0,0),3)
+			self.frame_bboxes = self.frame_bboxes[y:y+h, x:x+w]
+			#cv2.rectangle(self.frame_bboxes,(x,y),(x+w,y+h),(255,0,0),3)
 		return len(bboxes)
+
+	def cargar_modelo(self):
+		if self.modelo == None:
+			self.modelo = load_model('modelo.h5')
 
 	def iniciar_video(self):
 		self.vs.start()
 		time.sleep(1)
+		self.cargar_modelo()
 		while not self.stopEvent.is_set():
 			self.leer_imagen()
 			self.asignar_panelVideo()
@@ -164,17 +188,18 @@ class Interface:
 		self.vs.stop()
 		print('[INFO] Terminada la trasmision...')
 
-	def convertir_arreglo_imagen(self):
-		self.frame = imutils.resize(self.frame, width=int(self.d_width/2))
-		self.img = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
-		self.img = Image.fromarray(self.img)
-		self.img = self.img.transpose(method=Image.FLIP_LEFT_RIGHT)
+	def convertir_arreglo_imagen(self, img):
+		img = cv2.resize(img, dsize=(int(self.d_width/2), int(self.d_width/2)), interpolation=cv2.INTER_CUBIC)
+		img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+		img = Image.fromarray(img)
+		img = img.transpose(method=Image.FLIP_LEFT_RIGHT)
+		return img
 
 	def asignar_panelVideo(self):
-		self.convertir_arreglo_imagen()
-		img = ImageTk.PhotoImage(self.img)
+		_img = self.convertir_arreglo_imagen(self.frame)
+		img = ImageTk.PhotoImage(_img)
 		if self.panelVideo is None:
-			self.panelVideo = Label(self.framevideo, image=img)
+			self.panelVideo = Label(self.frame, image=img)
 			self.panelVideo.image = img
 			self.panelVideo.pack(padx=self.pad_x, pady=self.pad_y)
 		else:
@@ -182,10 +207,10 @@ class Interface:
 			self.panelVideo.image = img
 
 	def asignar_panelCapura(self):
-		self.convertir_arreglo_imagen()
-		img = ImageTk.PhotoImage(self.img)
+		_img = self.convertir_arreglo_imagen(self.frame_prediccion)
+		img = ImageTk.PhotoImage(_img)
 		if self.panelCaptura is None:
-			self.panelCaptura = Label(self.framecapture, image=img)
+			self.panelCaptura = Label(_img, image=img)
 			self.panelCaptura.image = img
 			self.panelCaptura.pack(padx=self.pad_x, pady=self.pad_y)
 		else:
