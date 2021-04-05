@@ -40,14 +40,17 @@ class Interface:
 		self.d_width = w
 		self.d_height = h
 		self.i = 1
+		self.pad_x = 2
+		self.pad_y = 2
 		self.color ='black'
 		self.color1 ='green'
 		self.color2 ='white'
 		self.path = 'base'
+		self.etiquetas = ['Desconocido', 'Valentina', 'Felipe', 'Kevyn', 'Jeferson', 'Alejandro']
 		self.framePrincipal = None
 		self.frameSup = None
-		self.framevideo = None
-		self.framecapture = None
+		self.frameVideo = None
+		self.frameCapture = None
 		self.frameInf = None
 		self.lbl = None
 		self.btn = None
@@ -61,10 +64,7 @@ class Interface:
 		self.frame = None
 		self.frame_prediccion = None
 		self.modelo = None
-		self.pad_x = 2
-		self.pad_y = 2
 		self.resultado_prediccion = None
-		self.etiquetas = ['Desconocido', 'Valentina', 'Felipe', 'Kevyn', 'Jeferson', 'Alejandro']
 		self.position()
 		self.start()
 		self.leer_imagen()
@@ -96,13 +96,13 @@ class Interface:
 		self.frameSup.config(bg=self.color, width=self.d_width, height=self.d_height)
 		self.frameSup.pack(fill='both', expand='False')
 
-		self.framevideo = Frame(self.frameSup)
-		self.framevideo.config(bg=self.color, width=self.d_width/2, height=self.d_height)
-		self.framevideo.pack(side='left', anchor='n')
+		self.frameVideo = Frame(self.frameSup)
+		self.frameVideo.config(bg=self.color, width=self.d_width/2, height=self.d_height)
+		self.frameVideo.pack(side='left', anchor='n')
 
-		self.framecapture = Frame(self.frameSup)
-		self.framecapture.config(bg=self.color, width=self.d_width/2, height=self.d_height)
-		self.framecapture.pack(side='right', anchor='n')
+		self.frameCapture = Frame(self.frameSup)
+		self.frameCapture.config(bg=self.color, width=self.d_width/2, height=self.d_height)
+		self.frameCapture.pack(side='right', anchor='n')
 
 
 		#Frame Inferior
@@ -116,58 +116,6 @@ class Interface:
 		self.btnStop = Button(self.frameInf, text = 'Stop', state=DISABLED, command= self.stop, activebackground='black', activeforeground='white', padx=10, pady=5)
 		self.btnStop.pack(side='left')
 
-	def asignar_nombre(self, label, color):
-		self.lbl.config(fg =color, text=label)
-
-	def leer_imagen(self):
-		try:
-			self.frame = self.vs.read()
-		except Exception as e:
-			print('[INFO] Error en la captura del video: ', e)
-
-	def capturar_imagenes(self):
-		date_now = datetime.datetime.now()
-		self.filename = '{}.png'.format(date_now.strftime('%Y-%m-%d_%H_%M_%S'))
-		path_img = os.path.join(os.getcwd(), self.filename)
-		
-		#FaceDetection
-		boxes = self.crop_img()
-		if boxes==1:
-			self.prediccion()
-			self.convertir_arreglo_imagen()
-			self.img.save(path_img)
-			print('[INFO] saved {}'.format(self.filename))
-			maximo = np.amax(self.resultado_prediccion)
-			indice_etiqueta_prediccion = self.resultado_prediccion.tolist()[0].index(maximo)
-			if self.etiquetas[indice_etiqueta_prediccion].upper() == 'DESCONOCIDO':
-				self.asignar_nombre('No se ha identificado un rostro.', 'yellow')
-			else:
-				self.asignar_nombre('Hola ' + self.etiquetas[indice_etiqueta_prediccion] + ' bienvenido.', 'green')
-			self.asignar_panelCapura()
-		else:
-			self.asignar_nombre('Rostro no detectado', 'red')
-			self.frame_prediccion = None
-			self.asignar_panelCapura()
-
-	def prediccion(self):
-		self.frame_prediccion = cv2.resize(self.frame_bboxes, dsize=(120, 120), interpolation=cv2.INTER_CUBIC)
-		self.frame_prediccion = img_to_array(self.frame_prediccion)
-		self.frame_prediccion = (self.frame_prediccion-self.frame_prediccion.min())/(self.frame_prediccion.max()-self.frame_prediccion.min())
-		self.frame_prediccion = np.array([self.frame_prediccion])
-		self.resultado_prediccion = self.modelo.predict(self.frame_prediccion)
-		self.frame_prediccion = cv2.cvtColor(self.frame_prediccion, cv2.COLOR_GRAY2RGB)
-
-	def crop_img(self):
-		classifier = CascadeClassifier('haarcascade_frontalface_default.xml')
-		self.frame_bboxes = cv2.cvtColor(self.frame, cv2.COLOR_RGB2GRAY)
-		bboxes = classifier.detectMultiScale(image=self.frame_bboxes)
-		print('***Cantidad Boxes detectados: {0} - {1}'.format(len(bboxes), bboxes))
-
-		if len(bboxes)==1:
-			x,y,w,h = bboxes[0]
-			self.frame_bboxes = self.frame_bboxes[y:y+h, x:x+w]
-			#cv2.rectangle(self.frame_bboxes,(x,y),(x+w,y+h),(255,0,0),3)
-		return len(bboxes)
 
 	def cargar_modelo(self):
 		if self.modelo == None:
@@ -179,38 +127,88 @@ class Interface:
 		self.cargar_modelo()
 		while not self.stopEvent.is_set():
 			self.leer_imagen()
-			self.asignar_panelVideo()
+			self.asignar_panelVideo(self.frame)
 			self.btnCapture.configure(state='normal')
 			self.btnStop.configure(state='normal')
+
+	def leer_imagen(self):
+		try:
+			self.frame = self.vs.read()
+		except Exception as e:
+			print('[INFO] Error en la captura del video: ', e)
+
+	def asignar_nombre(self, label, color):
+		self.lbl.config(fg =color, text=label)
+
+	def capturar_imagenes(self):
+		boxes, frame_bboxes= self.crop_img(self.frame)
+		if boxes==1:
+			resultado_prediccion = self.prediccion(frame_bboxes)
+			maximo = np.amax(resultado_prediccion)
+			indice_etiqueta_prediccion = resultado_prediccion.tolist()[0].index(maximo)
+			if self.etiquetas[indice_etiqueta_prediccion].upper() == 'DESCONOCIDO':
+				self.asignar_nombre('Rostro NO reconocido.', 'yellow')
+			else:
+				self.asignar_nombre('Hola ' + self.etiquetas[indice_etiqueta_prediccion].upper() + ' bienvenid@.', 'green')
+				date_now = datetime.datetime.now()
+				filename = '{0}_{1}.png'.format(self.etiquetas[indice_etiqueta_prediccion].upper(), date_now.strftime('%Y-%m-%d_%H_%M_%S'))
+				path_img = os.path.join(os.getcwd(), filename)
+				img = self.convertir_arreglo_imagen(frame_bboxes, False)
+				img.save(path_img)
+				print('[INFO] saved {}'.format(self.filename))
+				
+				img = cv2.cvtColor(frame_bboxes, cv2.COLOR_GRAY2RGB)
+				self.asignar_panelCapura(img)
+		else:
+			self.asignar_nombre('Rostro no detectado', 'red')
+
+	def crop_img(self, img):
+		classifier = CascadeClassifier('haarcascade_frontalface_default.xml')
+		frame_bboxes = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+		bboxes = classifier.detectMultiScale(image=frame_bboxes)
+		print('***Cantidad Boxes detectados: {0} - {1}'.format(len(bboxes), bboxes))
+
+		if len(bboxes)==1:
+			x,y,w,h = bboxes[0]
+			frame_bboxes = frame_bboxes[y:y+h, x:x+w]
+			#cv2.rectangle(self.frame_bboxes,(x,y),(x+w,y+h),(255,0,0),3)
+		return len(bboxes), frame_bboxes
+
+	def prediccion(self, img):
+		frame_prediccion = cv2.resize(img, dsize=(120, 120), interpolation=cv2.INTER_CUBIC)
+		frame_prediccion = img_to_array(frame_prediccion)
+		frame_prediccion = (frame_prediccion-frame_prediccion.min())/(frame_prediccion.max()-frame_prediccion.min())
+		frame_prediccion = np.array([frame_prediccion])
+		resultado_prediccion = self.modelo.predict(frame_prediccion)
+		return resultado_prediccion
 
 	def stop(self):
 		self.stopEvent.set()
 		self.vs.stop()
 		print('[INFO] Terminada la trasmision...')
 
-	def convertir_arreglo_imagen(self, img):
+	def convertir_arreglo_imagen(self, img, photo):
 		img = cv2.resize(img, dsize=(int(self.d_width/2), int(self.d_width/2)), interpolation=cv2.INTER_CUBIC)
 		img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 		img = Image.fromarray(img)
 		img = img.transpose(method=Image.FLIP_LEFT_RIGHT)
+		if photo: img = ImageTk.PhotoImage(img)
 		return img
 
-	def asignar_panelVideo(self):
-		_img = self.convertir_arreglo_imagen(self.frame)
-		img = ImageTk.PhotoImage(_img)
+	def asignar_panelVideo(self, captura_imagen):
+		img = self.convertir_arreglo_imagen(captura_imagen, True)
 		if self.panelVideo is None:
-			self.panelVideo = Label(self.frame, image=img)
+			self.panelVideo = Label(self.frameVideo, image=img)
 			self.panelVideo.image = img
 			self.panelVideo.pack(padx=self.pad_x, pady=self.pad_y)
 		else:
 			self.panelVideo.configure(image=img)
 			self.panelVideo.image = img
 
-	def asignar_panelCapura(self):
-		_img = self.convertir_arreglo_imagen(self.frame_prediccion)
-		img = ImageTk.PhotoImage(_img)
+	def asignar_panelCapura(self, captura_imagen):
+		img = self.convertir_arreglo_imagen(captura_imagen, True)
 		if self.panelCaptura is None:
-			self.panelCaptura = Label(_img, image=img)
+			self.panelCaptura = Label(self.frameCapture, image=img)
 			self.panelCaptura.image = img
 			self.panelCaptura.pack(padx=self.pad_x, pady=self.pad_y)
 		else:
@@ -221,7 +219,6 @@ class Interface:
 ventana = Tk()
 print("[INFO] Iniciando Interfaz y captura de video...")
 vs = VideoStream(resolution=(300,300))
-time.sleep(2.0)
 
 Interface(ventana, vs, 600, 200)
 ventana.mainloop()
