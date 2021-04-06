@@ -1,5 +1,6 @@
 from imutils.video import WebcamVideoStream
 from tkinter import *
+from tkinter import font
 from PIL import ImageTk, Image, ImageEnhance
 import numpy as np
 import datetime
@@ -40,13 +41,14 @@ class Interface:
 		self.d_width = w
 		self.d_height = h
 		self.i = 1
-		self.pad_x = 2
-		self.pad_y = 2
+		self.pad_x = 5
+		self.pad_y = 5
 		self.color ='black'
 		self.color1 ='green'
 		self.color2 ='white'
 		self.path = 'base'
 		self.etiquetas = ['Desconocido', 'Valentina', 'Felipe', 'Kevyn', 'Jeferson', 'Alejandro']
+		self.label_font = font.Font(family="Arial", size=15, weight='bold')
 		self.framePrincipal = None
 		self.frameSup = None
 		self.frameVideo = None
@@ -103,13 +105,13 @@ class Interface:
 		#Frame Inferior
 		self.frameInf = Frame(self.framePrincipal)
 		self.frameInf.config(bg=self.color, width=self.d_width, height=self.d_height/4)
-		self.frameInf.pack()
-		self.lbl = Label(self.frameInf, text='', fg=self.color2, bg=self.color)
-		self.lbl.pack()
+		self.frameInf.pack(anchor=CENTER)
+		self.lbl = Label(self.frameInf, text='', fg=self.color2, bg=self.color, font= self.label_font, width=30)
+		self.lbl.grid(row=0, column=0, columnspan=2, pady=self.pad_y)
 		self.btnCapture = Button(self.frameInf, text = 'Capture', state=DISABLED, command=self.capturar_imagenes, activebackground='black', activeforeground='white', padx=10, pady=5)
-		self.btnCapture.pack(side='left')
+		self.btnCapture.grid(row=1, column=0, pady=self.pad_y)
 		self.btnStop = Button(self.frameInf, text = 'Stop', state=DISABLED, command= self.stop, activebackground='black', activeforeground='white', padx=10, pady=5)
-		self.btnStop.pack(side='left')
+		self.btnStop.grid(row=1, column=1, pady=self.pad_y)
 
 
 	def cargar_modelo(self):
