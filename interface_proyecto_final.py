@@ -122,7 +122,8 @@ class Interface:
 		self.cargar_modelo()
 		while not self.stopEvent.is_set():
 			self.leer_imagen()
-			self.asignar_panelVideo(self.frame)
+			_, _, img_color = self.crop_img(self.frame, True)
+			self.asignar_panelVideo(img_color)
 			self.btnCapture.configure(state='normal')
 			self.btnStop.configure(state='normal')
 
@@ -136,7 +137,7 @@ class Interface:
 		self.lbl.config(fg =color, text=label)
 
 	def capturar_imagenes(self):
-		boxes, frame_bboxes, img_color = self.crop_img(self.frame)
+		boxes, frame_bboxes, img_color = self.crop_img(self.frame, False)
 		if boxes==1:
 			resultado_prediccion = self.prediccion(frame_bboxes)
 			maximo = np.amax(resultado_prediccion)
@@ -153,20 +154,22 @@ class Interface:
 				print('[INFO] saved {}'.format(filename))
 				self.asignar_panelCapura(img_color)
 		else:
-			self.asignar_nombre('Rostro no detectado', 'red')
+			self.asignar_nombre('Rostro NO detectado', 'red')
 
-	def crop_img(self, img):
+	def crop_img(self, img, bounding_box):
 		classifier = CascadeClassifier('haarcascade_frontalface_default.xml')
 		img_color = img.copy()
 		frame_bboxes = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 		bboxes = classifier.detectMultiScale(image=frame_bboxes)
-		print('***Cantidad Boxes detectados: {0} - {1}'.format(len(bboxes), bboxes))
 
 		if len(bboxes)==1:
 			x,y,w,h = bboxes[0]
-			frame_bboxes = frame_bboxes[y:y+h, x:x+w]
-			img_color = img_color[y:y+h, x:x+w]
-			#cv2.rectangle(self.frame_bboxes,(x,y),(x+w,y+h),(255,0,0),3)
+			if bounding_box:
+				cv2.rectangle(img_color,(x,y),(x+w,y+h),(0,255,0),3)
+			else:
+				frame_bboxes = frame_bboxes[y:y+h, x:x+w]
+				img_color = img_color[y:y+h, x:x+w]
+				print('***Rostros detectados: {0}'.format(len(bboxes)))
 		return len(bboxes), frame_bboxes, img_color
 
 	def prediccion(self, img):
