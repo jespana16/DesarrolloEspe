@@ -1,6 +1,5 @@
 *.gif
 *.png
-*.ico
 
 Interface_desarrollo.py
 Interface_video_completo.py

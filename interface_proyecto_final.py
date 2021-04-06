@@ -56,15 +56,10 @@ class Interface:
 		self.btn = None
 		self.panelVideo = None
 		self.panelCaptura = None
-		self.img = None
-		self.img2 = None
 		self.thread = None
 		self.stopEvent = None
-		self.filename = None
 		self.frame = None
-		self.frame_prediccion = None
 		self.modelo = None
-		self.resultado_prediccion = None
 		self.position()
 		self.start()
 		self.leer_imagen()
@@ -141,7 +136,7 @@ class Interface:
 		self.lbl.config(fg =color, text=label)
 
 	def capturar_imagenes(self):
-		boxes, frame_bboxes= self.crop_img(self.frame)
+		boxes, frame_bboxes, img_color = self.crop_img(self.frame)
 		if boxes==1:
 			resultado_prediccion = self.prediccion(frame_bboxes)
 			maximo = np.amax(resultado_prediccion)
@@ -153,17 +148,16 @@ class Interface:
 				date_now = datetime.datetime.now()
 				filename = '{0}_{1}.png'.format(self.etiquetas[indice_etiqueta_prediccion].upper(), date_now.strftime('%Y-%m-%d_%H_%M_%S'))
 				path_img = os.path.join(os.getcwd(), filename)
-				img = self.convertir_arreglo_imagen(frame_bboxes, False)
+				img = self.convertir_arreglo_imagen(img_color, False)
 				img.save(path_img)
-				print('[INFO] saved {}'.format(self.filename))
-				
-				img = cv2.cvtColor(frame_bboxes, cv2.COLOR_GRAY2RGB)
-				self.asignar_panelCapura(img)
+				print('[INFO] saved {}'.format(filename))
+				self.asignar_panelCapura(img_color)
 		else:
 			self.asignar_nombre('Rostro no detectado', 'red')
 
 	def crop_img(self, img):
 		classifier = CascadeClassifier('haarcascade_frontalface_default.xml')
+		img_color = img.copy()
 		frame_bboxes = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 		bboxes = classifier.detectMultiScale(image=frame_bboxes)
 		print('***Cantidad Boxes detectados: {0} - {1}'.format(len(bboxes), bboxes))
@@ -171,8 +165,9 @@ class Interface:
 		if len(bboxes)==1:
 			x,y,w,h = bboxes[0]
 			frame_bboxes = frame_bboxes[y:y+h, x:x+w]
+			img_color = img_color[y:y+h, x:x+w]
 			#cv2.rectangle(self.frame_bboxes,(x,y),(x+w,y+h),(255,0,0),3)
-		return len(bboxes), frame_bboxes
+		return len(bboxes), frame_bboxes, img_color
 
 	def prediccion(self, img):
 		frame_prediccion = cv2.resize(img, dsize=(120, 120), interpolation=cv2.INTER_CUBIC)
