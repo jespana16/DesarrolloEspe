@@ -62,9 +62,6 @@ class Interface:
 		self.stopEvent = None
 		self.frame = None
 		self.modelo = None
-		self.position()
-		self.start()
-		self.leer_imagen()
 
 	def position(self):		 
 		positionRight = int(self.root.winfo_screenwidth()/2 - self.d_width/2)
@@ -215,10 +212,14 @@ class Interface:
 			self.panelCaptura.configure(image=img)
 			self.panelCaptura.image = img
 
+def main():
+	ventana = Tk()
+	print("[INFO] Iniciando Interfaz y captura de video...")
+	vs = VideoStream(resolution=(300,300))
+	inter = Interface(ventana, vs, 600, 200)
+	inter.position()
+	inter.start()
+	ventana.mainloop()
 
-ventana = Tk()
-print("[INFO] Iniciando Interfaz y captura de video...")
-vs = VideoStream(resolution=(300,300))
-
-Interface(ventana, vs, 600, 200)
-ventana.mainloop()
+if __name__ == '__main__':
+	main()
